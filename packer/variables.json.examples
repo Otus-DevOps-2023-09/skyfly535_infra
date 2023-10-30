@@ -1,0 +1,7 @@
+{
+    "folder_id": "*******************",
+    "source_image_family": "ubuntu-1604-lts",
+    "service_account_key_file": "packer/key.json.example",
+    "disk_size_gb": "10",
+    "ssh_username": "ubuntu"
+}

@@ -1,0 +1,57 @@
+{
+    "builders": [
+        {
+            "type": "yandex",
+            "service_account_key_file": "{{ user `service_account_key_file` }}",
+            "folder_id": "{{ user `folder_id` }}",
+            "source_image_family": "{{ user `source_image_family` }}",
+            "use_ipv4_nat": true,
+            "image_name": "reddit-base-{{timestamp}}",
+            "image_family": "reddit-full",
+            "ssh_username": "{{ user `ssh_username` }}",
+            "platform_id": "standard-v1",
+            "disk_size_gb": "10"
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline": [
+                "echo Waiting for apt-get to finish...",
+                "a=1; while [ -n \"$(pgrep apt-get)\" ]; do echo $a; sleep 1s; a=$(expr $a + 1); done",
+                "echo Done."
+            ]
+        },
+        {
+            "type": "shell",
+            "script": "scripts/install_ruby.sh",
+            "execute_command": "sudo {{.Path}}"
+        },
+        {
+            "type": "shell",
+            "script": "scripts/install_mongodb.sh",
+            "execute_command": "sudo {{.Path}}"
+        },
+        {
+            "type": "file",
+            "source": "./files/puma.service",
+            "destination": "/tmp/puma.service"
+        },
+        {
+            "type": "shell",
+            "inline": [
+                "sudo mv /tmp/puma.service /etc/systemd/system/puma.service",
+                "sudo apt-get update",
+                "sudo apt-get install -y git",
+                "sudo mkdir -p /monolith && sudo chown $USER /monolith && cd /monolith",
+                "git clone -b monolith https://github.com/express42/reddit.git",
+                "cd /monolith/reddit && bundle install",
+                "sudo systemctl daemon-reload",
+                "sudo systemctl start puma",
+                "sudo systemctl enable puma"
+            ]
+        }
+
+    ]
+
+}
