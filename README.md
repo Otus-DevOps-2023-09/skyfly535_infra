@@ -1,3 +1,86 @@
+# HW6 Практика IaC с использованием Terraform
+
+## В процессе выполнения ДЗ выполнены следующие мероприятия:
+
+1. Установлен `Terraform` и  настроен `Provider`, который позволит управлять ресурсами `YC`;
+
+2. Описана конфигурация (в файле `main.tf`) развертываемого инстанса. ВМ поднимаем из базового образа предыдущего ДЗ;
+
+3. Настроен экспорт `SSH ключей` в развертываемую ВМ;
+
+4. Настроен вывод необходимых значений (внешние IP DV) после отработки terraform на экран и в файл состояния (файл конфигурации `outputs.tf`);
+
+5. Настроен диплой приложения при помощи скрипта `deploy.sh` и systemd unit `puma.service` (секция `provisioner`);
+
+В процессе диплоя пришлось решать проблему залоченной базы `apt`
+
+добавленна проверкав начало скрипта `deploy.sh` из предыдущего ДЗ
+
+```
+echo Waiting for apt-get to finish...
+a=1; while [ -n "$(pgrep apt-get)" ]; do echo $a; sleep 1s; a=$(expr $a + 1); done
+echo Done.
+```
+6. Настроены входные переменные (input переменные) файлы `variables.tf` и `terraform.tfvars`;
+
+# Дополнительное задание
+7. Создан дополнительный клон инстанса с веб приложением при помощи параметра ресурса `count`;
+
+```
+resource "yandex_compute_instance" "app" {
+  count = var.instances_count
+  name  = "reddit-app-${count.index}"
+
+  ...
+```
+8. Создан `Network Load Balancer` и настроена балансировка между инстансами веб приложения;
+
+файл lb.tf
+
+```
+resource "yandex_lb_network_load_balancer" "lb-skyfly" {
+  name = "lb-skyfly"
+  type = "external"
+
+
+  listener {
+    name        = "web-listener"
+    port        = 80
+    target_port = 9292
+
+    external_address_spec {
+      ip_version = "ipv4"
+    }
+  }
+
+  attached_target_group {
+    target_group_id = yandex_lb_target_group.loadbalancer.id
+
+    healthcheck {
+      name = "http"
+      http_options {
+        port = 9292
+        path = "/"
+      }
+    }
+  }
+}
+
+resource "yandex_lb_target_group" "loadbalancer" {
+  name      = "target-group"
+  folder_id = var.folder_id
+
+  dynamic "target" {
+    for_each = yandex_compute_instance.app.*.network_interface.0.ip_address
+    content {
+      subnet_id = var.subnet_id
+      address   = target.value
+    }
+  }
+}
+```
+9. Проверена работа балансировщика с неработающим одним сервером.
+
 # HW5 Сборка образов VM приСборка образов VM при помощи Packerпом
 
 ## В процессе выполнения ДЗ выполнены следующие мероприятия:
@@ -39,7 +122,7 @@
 packer build -var-file variables.json ubuntu16.json
 ```
 
-# Дополнительное задание
+## Дополнительное задание
 
 1.  Создан  `bake-образ` для запуска истанса с развернутым приложением;
 
