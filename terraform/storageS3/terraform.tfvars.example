@@ -1,0 +1,4 @@
+cloud_id                 = "example cloud_id"
+folder_id                = "example folder_id"
+zone                     = "ru-central1-a"
+token                    = "example token"

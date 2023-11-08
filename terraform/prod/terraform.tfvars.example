@@ -1,0 +1,11 @@
+cloud_id                 = "example cloud_id"
+folder_id                = "example folder_id"
+zone                     = "ru-central1-a"
+image_id                 = "example image_id"
+public_key_path          = "/path/to/public/key"
+subnet_id                = "example subnet_id"
+service_account_key_file = "/path/to/key/json"
+private_key_path         = "/path/to/private/key"
+instances_count          = 1
+app_disk_image           = "example app_disk_image"
+db_disk_image            = "example db_disk_image"
