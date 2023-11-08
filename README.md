@@ -1,3 +1,71 @@
+# HW7 Принципы организации инфраструктурного кодаинфраструктурного кода и работа нади работа над инфраструктурой винфраструктурой в команде на примерекоманде на примере Terraform.
+
+## В процессе выполнения ДЗ выполнены следующие мероприятия:
+
+1. Теcтовое приложение разделено на две ВМ. Для каждой ВМ создан свой packer образ (`db.json` - ВМ с  MongoDB, `app.json` - ВМ с  Ruby);
+
+2. Разбита конфигурация изначального тестового приложения на конфигурации двух инстансов (БД и Приложения);
+
+3. Изучена работа с модулями в Terraform;
+
+4. Рассмотрен функционал атрибутов ресурсов;
+
+5. Проверена работа поднятых при помощи модулей инстансов по SSH;
+
+6. Рассмотрен вариант применения Terraform модулей для использования на разных стадиях конвейера непрерывной поставки с необходимыми изменениями (принцип `DRY`):
+
+  - создана инфраструктура окружения `stage`;
+
+  - создана инфраструктура окружения `prod`.
+
+## Дополнительное задание 1
+
+7. При помощи сценария Terraform и мануала (https://cloud.yandex.ru/docs/storage/operations/buckets/create) создан бакет (каталог `terraform/storageS3` с конфиг файами для автоматизации создания бакета);
+
+Минимально необходимая роль для создания бакета — `storage.editor` (в секции `provider` использовал `owner token`).
+
+8. Настроено хранение стейт файлов в удаленном бекенде (`remote backends`) для окружений `stage` и `prod`, используя `Yandex Object Storage` в качестве бекенда;
+
+Инициализация бэкэнда для окружений `stage` и `prod` производится в каталогах этих окружений следующим образом
+
+```
+$ export ACCESS_KEY="<идентификатор_ключа>"
+$ export SECRET_KEY="<секретный_ключ>"
+
+$ tterraform init -backend-config="access_key=$ACCESS_KEY" -backend-config="secret_key=$SECRET_KEY"
+```
+Ключи пришлось вытаскивать через `terraform.tfstate`.
+
+## Дополнительное задание 2
+
+9. Добавлены необходимые `provisioner` в модули для деплоя и работы приложения.
+
+Внутренний IP адрес ВМ с БД передается в конфигурацию сервиса Puma `puma.service` через переменную `DATABASE_URL` ( terraform/modules/app/puma.service ).
+
+```
+[Unit]
+Description=Puma HTTP Server
+After=network.target
+
+[Service]
+Environment='DATABASE_URL=${internal_ip_address_db}'
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/reddit
+ExecStart=/bin/bash -lc 'puma'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+Определение переменной `internal_ip_address_db` осуществляется через функцию `templatefile` в провиженере `file`:
+```
+provisioner "file" {
+  content     = templatefile("${path.module}/puma.service", { internal_ip_address_db = "${var.db_ip}" })
+  destination = "/tmp/puma.service"
+}
+```
+
 # HW6 Практика IaC с использованием Terraform
 
 ## В процессе выполнения ДЗ выполнены следующие мероприятия:
@@ -23,7 +91,7 @@ echo Done.
 ```
 6. Настроены входные переменные (input переменные) файлы `variables.tf` и `terraform.tfvars`;
 
-# Дополнительное задание
+## Дополнительное задание
 7. Создан дополнительный клон инстанса с веб приложением при помощи параметра ресурса `count`;
 
 ```
