@@ -1,0 +1,20 @@
+{
+    "app": {
+        "hosts": {
+            "158.160.127.143": null
+        },
+        "vars": {
+            "ansible_user": "ubuntu",
+            "ansible_private_key_file": "~/.ssh/yc"
+        }
+    },
+    "db": {
+        "hosts": {
+            "158.160.123.27": null
+        },
+        "vars": {
+            "ansible_user": "ubuntu",
+            "ansible_private_key_file": "~/.ssh/yc"
+        }
+    }
+}

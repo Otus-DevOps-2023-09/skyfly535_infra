@@ -1,3 +1,212 @@
+# HW8 Управление конфигурацией. Основные DevOps инструменты. Знакомство с Ansible.
+
+## В процессе выполнения ДЗ выполнены следующие мероприятия:
+
+1. Установлен Ansible и произведена настройка клиента;
+
+2. Подняты инстансы из окружения `stage` для отработки навыков работы с Ansible;
+
+3. Создан файл `ansible.cfg` для настройки функций Ansible;
+
+```
+[defaults]
+inventory = ./inventory
+remote_user = ubuntu
+private_key_file = ~/.ssh/appuser
+host_key_checking = False
+retry_files_enabled = False
+```
+
+4. Создан файл `inventory` для управления хостами при помощи Ansible;
+
+```
+[app]
+appserver ansible_host=130.193.51.190
+
+[db]
+dbserver ansible_host=158.160.49.229
+```
+5. Изучена работа в Ansible с группами хостов;
+
+6. Создан файл `inventory.yaml` для управления хостами при помощи Ansible;
+
+```
+app:
+  hosts:
+    appserver:
+      ansible_host: 130.193.51.190
+
+db:
+  hosts:
+    dbserver:
+      ansible_host: 158.160.49.229
+```
+Внесены мзменения в `ansible.cfg`
+
+```
+inventory = ./inventory.yaml
+```
+Проверена работоспособность
+
+```
+$ ansible all -m ping
+158.160.49.229 | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+130.193.51.190 | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+```
+7. Отработаны навыки по конфигурации хостов при помощи команд Ansible;
+
+8. Написан простой плейбук, который выполняет клонирование репозитория;
+
+```
+---
+- name: Clone
+  hosts: app
+  tasks:
+    - name: Clone repo
+      git:
+        repo: https://github.com/express42/reddit.git
+        dest: /home/ubuntu/reddit
+```
+Проверена работа данного плейбук
+
+```
+$ ansible-playbook clone.yml
+
+PLAY [Clone] *****************************************************************************************************
+
+TASK [Gathering Facts] *******************************************************************************************
+ok: [130.193.51.190]
+
+TASK [Clone repo] ************************************************************************************************
+ok: [130.193.51.190]
+
+PLAY RECAP *******************************************************************************************************
+130.193.51.190             : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+
+```
+## Дополнительное задание
+
+9. Изучены две различных схемы JSON-inventory -- статическая и динамическая;
+
+10. Создан Создан файл `inventorySTAT.json` в формате статического инвентори;
+
+```
+{
+    "app": {
+        "hosts": {
+            "158.160.127.143": null
+        },
+        "vars": {
+            "ansible_user": "ubuntu",
+            "ansible_private_key_file": "~/.ssh/yc"
+        }
+    },
+    "db": {
+        "hosts": {
+            "158.160.123.27": null
+        },
+        "vars": {
+            "ansible_user": "ubuntu",
+            "ansible_private_key_file": "~/.ssh/yc"
+        }
+    }
+}
+```
+
+Можно воспользоваться командой `ansible-inventory` с параметром `--list` что бы сформировать json файл.
+
+Для работы нового inventorySTAT.json также необходимо внести изменения в `ansible.cfg`.
+
+11. Написан bash-скрипт  `gen-inv.sh`, который генерирует json массив в формате динамического инвентори. IP адреса инстансов `app` и `db` запрашиваются в YC через CLI `yc compute instance get`.
+
+```
+#!/bin/bash
+
+if [[ $1 == "--list" ]]; then
+
+    apphost_ip=$(yc compute instance get --name reddit-app-0 --format=json | jq -r '.network_interfaces[0].primary_v4_address.one_to_one_nat.address')
+    dbhost_ip=$(yc compute instance get --name reddit-db-0 --format=json | jq -r '.network_interfaces[0].primary_v4_address.one_to_one_nat.address')
+
+    cat <<EOT
+{
+    "_meta": {
+        "hostvars": {}
+    },
+    "app": {
+        "hosts": ["${apphost_ip}"],
+        "vars": {
+            "ansible_user": "ubuntu",
+            "ansible_private_key_file": "~/.ssh/yc"
+        }
+    },
+    "db": {
+        "hosts": ["${dbhost_ip}"],
+        "vars": {
+            "ansible_user": "ubuntu",
+            "ansible_private_key_file": "~/.ssh/yc"
+        }
+    }
+}
+EOT
+elif [[ $1 == "--host" ]]; then
+    echo '{"_meta": {"hostvars": {}}}' | jq -M
+else
+    echo '{}'
+fi
+```
+Не забываем внести изменения в `ansible.cfg`
+
+```
+inventory = ./gen-inv.sh
+```
+Проверяем работу
+
+```
+$ ansible all -m ping
+158.160.49.229 | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+130.193.51.190 | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+```
+Можно  через консоль YC отключить один из истансов и повторить проверку
+
+```
+$ ansible all -m ping
+null | UNREACHABLE! => {
+    "changed": false,
+    "msg": "Failed to connect to the host via ssh: ssh: Could not resolve hostname null: Temporary failure in name resolution",
+    "unreachable": true
+}
+130.193.51.190 | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+```
 # HW7 Принципы организации инфраструктурного кодаинфраструктурного кода и работа нади работа над инфраструктурой винфраструктурой в команде на примерекоманде на примере Terraform.
 
 ## В процессе выполнения ДЗ выполнены следующие мероприятия:
