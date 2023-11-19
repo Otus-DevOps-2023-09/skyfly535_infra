@@ -41,18 +41,18 @@ resource "yandex_compute_instance" "app" {
     private_key = file(var.private_key_path)
   }
 
-  provisioner "file" {
-    content     = templatefile("${path.module}/puma.service", {internal_ip_address_db = "${var.db_ip}"})
-    destination = "/tmp/puma.service"
-  }
-  provisioner "file" {
-    source      = "${path.module}/deploy.sh"
-    destination = "/tmp/deploy.sh"
-  }
-  provisioner "remote-exec" {
-    inline = [
-      "chmod +x /tmp/deploy.sh",
-      "/tmp/deploy.sh",
-      ]
-  }
+  # provisioner "file" {
+  #   content     = templatefile("${path.module}/puma.service", {internal_ip_address_db = "${var.db_ip}"})
+  #   destination = "/tmp/puma.service"
+  # }
+  # provisioner "file" {
+  #   source      = "${path.module}/deploy.sh"
+  #   destination = "/tmp/deploy.sh"
+  # }
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "chmod +x /tmp/deploy.sh",
+  #     "/tmp/deploy.sh",
+  #     ]
+  # }
 }

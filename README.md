@@ -1,3 +1,153 @@
+# HW9 Деплой и управление конфигурацией с Ansible.
+
+## В процессе выполнения ДЗ выполнены следующие мероприятия:
+
+1. Написан playbook (методика `один playbook, один сценарий`) для управления конфигурацией и деплоя приложени на хостов развернутых с помощью terraform хостах.
+При написании playbook использоались `хендлеры` и `шаблоны` (conf.j2) для конфигурации окружения и деплоя тестового приложения. Проверена работоспособность (выпонялось последовательно при помощи тегов);
+
+```
+ansible-playbook reddit_app_one_play.yml --limit app --tags deploy-tag
+```
+
+2. Написан playbook (методика `один playbook, несколько сценариев`). Проверена работоспособность (выпонялось последовательно при помощи тегов);
+
+
+```
+ansible-playbook reddit_app_multiple_plays.yml --tags deploy-tag
+```
+
+3. Написана группа playbook (методика `несколько плэйбуков`).
+
+- `db.yml` - производит настройку БД;
+
+- `app.yml` - производит настройку сервреа приложения;
+
+- `deploy.yml` - производит деплой приложения.
+
+Для проверки создан playbook `site.yml`, в котором описано управление конфигурацией всей инфраструктурой.
+
+```
+---
+- import_playbook: db.yml
+- import_playbook: app.yml
+- import_playbook: deploy.yml
+```
+
+```
+ansible-playbook site.yml
+
+PLAY [Configure MongoDB] ****************************************************************************
+
+TASK [Gathering Facts] ****************************************************************************
+ok: [158.160.101.213]
+
+...
+
+RUNNING HANDLER [reload puma] ****************************************************************************
+changed: [158.160.96.243]
+
+PLAY RECAP *****************************************************************
+158.160.101.213            : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+158.160.96.243             : ok=10   changed=8    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+```
+P.S. В процессе отработки озвученных пунктов использовал скрипт `gen-inv.sh` создания динамического инвенторя из прошлого ДЗ.
+
+## Дополнительное задание
+
+4. Изменен провижининг в Packer (заменены bash-скрипты на Ansible-плейбуки). Созданы два playbook `packer_app.yml` (установка Ruby и Bundler) и `packer_db.yml` (установка MongoDB).
+
+Изменена секция Provision в образе `packer/app.json`
+
+```
+"provisioners": [
+    {
+         "type": "ansible",
+         "playbook_file": "ansible/packer_app.yml"
+    }
+]
+```
+Изменена секция Provision в образе `packer/app.json`
+
+```
+"provisioners": [
+    {
+         "type": "ansible",
+         "playbook_file": "ansible/packer_db.yml"
+    }
+]
+```
+Пересобираем новые образы (запускаем из корня проекта)
+
+```
+packer build -var-file=packer/variables.json packer/app.json
+
+packer build -var-file=packer/variables.json packer/db.json
+```
+Далее монтирум из полученных образов инстансы и катим на них playbook.
+
+5. Разобраться с плагином для динамического inventory YC.
+
+У самого не хватило времени разобраться, но подглядел решение в другом месте. Оставлю здесь, может пригодится.
+
+### Установки плагина и зависимостей:
+
+```
+cd ansible
+mkdir -p plugins/inventory
+curl https://raw.githubusercontent.com/st8f/community.general/yc_compute/plugins/inventory/yc_compute.py | \
+  sed -e 's/community\.general\.yc_compute/yc_compute/g' > plugins/inventory/yc_compute.py
+pip install yandexcloud
+```
+- Создан файл `inventory_yc.yml` с использованием плагина `yc_compute` и функционала `keyed_groups` (группируем хосты по метке `tags`):
+
+```
+---
+plugin: yc_compute
+folders:
+  - ***ID FOLDER***
+filters:
+  - status == 'RUNNING'
+auth_kind: serviceaccountfile
+service_account_file: ../packer/key.json
+compose:
+  ansible_host: network_interfaces[0].primary_v4_address.one_to_one_nat.address
+
+keyed_groups:
+  - key: labels['tags']
+```
+- Содержимое файла `ansible.cfg` приведено к виду:
+
+```
+[defaults]
+inventory = ./inventory_yc.yml
+remote_user = ubuntu
+private_key_file = ~/.ssh/yc
+host_key_checking = False
+retry_files_enabled = False
+
+inventory_plugins=./plugins/inventory
+
+[inventory]
+enable_plugins = yc_compute
+```
+
+- Проверка инвентори:
+
+```
+ansible-inventory --list --yaml
+
+all:
+  children:
+    _reddit_app:
+      hosts:
+        130.193.51.190:
+          ansible_host: 130.193.51.190
+    _reddit_db:
+      hosts:
+        158.160.49.229:
+          ansible_host: 158.160.49.229
+```
+
 # HW8 Управление конфигурацией. Основные DevOps инструменты. Знакомство с Ansible.
 
 ## В процессе выполнения ДЗ выполнены следующие мероприятия:
