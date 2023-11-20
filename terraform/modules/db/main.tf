@@ -41,14 +41,14 @@ resource "yandex_compute_instance" "db" {
     private_key = file(var.private_key_path)
   }
 
-  provisioner "file" {
-    source      = "${path.module}/deploy.sh"
-    destination = "/tmp/deploy.sh"
-  }
-  provisioner "remote-exec" {
-    inline = [
-      "chmod +x /tmp/deploy.sh",
-      "/tmp/deploy.sh",
-      ]
-  }
+  # provisioner "file" {
+  #   source      = "${path.module}/deploy.sh"
+  #   destination = "/tmp/deploy.sh"
+  # }
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "chmod +x /tmp/deploy.sh",
+  #     "/tmp/deploy.sh",
+  #     ]
+  # }
 }
