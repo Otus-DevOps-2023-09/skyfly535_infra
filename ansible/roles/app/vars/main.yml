@@ -1,0 +1,3 @@
+---
+# vars file for app
+#db_host: "{{ hostvars[groups['db'][0]].inventory_hostname }}"

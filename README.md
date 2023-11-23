@@ -1,3 +1,196 @@
+# HW10 Ansible: работа с ролями и окружениями.
+
+## В процессе выполнения ДЗ выполнены следующие мероприятия:
+
+1. Созданы структуры ролей `app` и `db` в соответсвии с принятым на Galaxy форматом при помощи команды `ansible-galaxy init` в созданной дирректории `roles`;
+
+```
+ansible-galaxy init app
+ansible-galaxy init db
+```
+2. Разнесены `tasks`, `templates`, `files`, `handlers` по соответсвующим каталогам структур ролей. (плейбуки ansible/db.yml и ansible/app.yml из предыдущего ДЗ);
+
+3. Преобразованны плейбуки ansible/db.yml и ansible/app.yml для вызова соответствующих ролей;
+
+Проверка
+
+```
+ansible-playbook site.yml
+```
+4. Настроенно управление окружениями `stage` и `prod` при помощи Ansible, при помощи `ansible.cfg` определено окружение по умолчанию, настроен вывод информации о том, в каком окружении находится конфигурируемый хост;
+
+Проверка настройки `stage` окружения
+
+```
+ansible-playbook playbooks/site.yml
+```
+
+Проверка настройки `prod` окружения
+
+```
+ansible-playbook -i environments/prod/inventory playbooks/site.yml
+```
+
+5. При помощи `коммьюнити-роли` (утилита ansible-galaxy) добавлена роль `jdauphant.nginx`
+(портале Ansible Galaxy) для настройки обратного проксирования для нашего приложения с помощью `nginx`;
+
+Установка роли при помощи ansible-galaxy:
+
+```
+ansible-galaxy install -r environments/stage/requirements.yml
+```
+После выполнения плейбук `site.yml` приложение должно стать доступно на 80 порту.
+
+6. Настроен `Ansible Vault` для работы с с приватными данными;
+
+- Создадим файл vault.key с произвольной строкой ключа и разместим файл вне репозитория
+
+```
+echo '**TFGFTRfgsijopishgfkhgkjhgljhgGGGGGERW0zd6U#TzxL#HlG' > ~/.ansible/vault.key
+```
+
+- В `ansible.cfg` добавим опцию `vault_password_file` в секцию [defaults] с путем до ключем
+
+```
+[defaults]
+...
+# Vault password file
+vault_password_file = ~/.ansible/vault.key
+```
+
+- Добавляем плейбук для создания пользователей
+
+```
+touch ansible/playbooks/users.yml
+```
+
+```
+---
+- name: Create users
+  hosts: all
+  become: true
+
+  vars_files:
+    - "{{ inventory_dir }}/credentials.yml"
+
+  tasks:
+    - name: create users
+      user:
+        name: "{{ item.key }}"
+        password: "{{ item.value.password|password_hash('sha512', 65534|random(seed=inventory_hostname)|string) }}"
+        groups: "{{ item.value.groups | default(omit) }}"
+      with_dict: "{{ credentials.users }}"
+```
+
+- Создадим файл с данными пользователей для каждого окружения
+
+```
+touch ansible/environments/prod/credentials.yml
+```
+```
+---
+credentials:
+  users:
+    admin:
+      password: admin123
+      groups: sudo
+```
+
+```
+touch ansible/environments/stage/credentials.yml
+```
+```
+---
+credentials:
+  users:
+    admin:
+      password: qwerty123
+      groups: sudo
+    qauser:
+      password: test123
+```
+- Шифруем файлы с данными пользователей используя ключ `vault.key`
+
+```
+ansible-vault encrypt environments/prod/credentials.yml
+ansible-vault encrypt environments/stage/credentials.yml
+```
+- Проверяем, зашифрованые файлы
+
+- Добавляем вызов плейбука `users.yml` в `site.yml`
+
+```
+---
+- import_playbook: db.yml
+- import_playbook: app.yml
+- import_playbook: deploy.yml
+- import_playbook: users.yml
+```
+- Поднимаем окружение `stage` и вызываем в нем главный плейбук
+
+```
+ansible-playbook playbooks/site.yml
+```
+
+- Для проверки того, что необходимые пользователи создались на инстансах app и db, можно через ansible прочитать файл `/etc/passwd` на remote хостах
+
+```
+ansible app -m shell -a 'cat /etc/passwd'
+ansible db -m shell -a 'cat /etc/passwd'
+```
+## Дополнительное задание
+
+7. Настроено использование динамического инвентори для окружений `stage` и `prod`.
+
+- Использован плагин `yc_compute` из прошлого ДЗ
+
+- Файл инвертори inventory_yc.yml для окружений приведен к виду
+
+```
+---
+plugin: yc_compute
+folders:
+  - *********************
+filters:
+  - status == 'RUNNING'
+auth_kind: serviceaccountfile
+service_account_file: ../packer/key.json
+compose:
+  ansible_host: network_interfaces[0].primary_v4_address.one_to_one_nat.address
+
+# keyed_groups:
+#   - key: labels['tags']
+
+groups:
+  db: labels['tags'] == 'reddit-db'
+  app: labels['tags'] == 'reddit-app'
+```
+
+- Проверка генерации инвенторя:
+
+```
+$ ansible-inventory --list --yaml
+
+all:
+  children:
+    app:
+      hosts:
+        158.160.50.131:
+          ansible_host: 158.160.50.131
+          db_host: 10.128.0.26
+          env: stage
+          nginx_sites:
+            default:
+            - listen 80
+            - server_name "reddit"
+            - location / { proxy_pass http://127.0.0.1:9292; }
+    db:
+      hosts:
+        158.160.50.131:
+          ansible_host: 158.160.50.131
+          env: stage
+          mongo_bind_ip: 0.0.0.0
+```
 # HW9 Деплой и управление конфигурацией с Ansible.
 
 ## В процессе выполнения ДЗ выполнены следующие мероприятия:
