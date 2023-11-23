@@ -4,3 +4,4 @@
 *.tfvars
 .terraform/
 .terraform.lock.*
+jdauphant.nginx
