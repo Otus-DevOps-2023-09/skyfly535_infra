@@ -1,0 +1,16 @@
+---
+- name: Install ruby and rubygems and required packages
+  apt: "name={{ item }} state=present"
+  with_items:
+    - ruby-full
+    - ruby-bundler
+    - build-essential
+  tags: ruby
+
+
+# ---
+# - name: Install ruby and rubygems and required packages
+#   apt:
+#     name: ['ruby-full', 'ruby-bundler', 'build-essential']
+#     state: present
+#   tags: ruby

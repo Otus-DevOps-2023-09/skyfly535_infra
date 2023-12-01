@@ -1,3 +1,11 @@
 ---
 # vars file for app
+nginx_sites:
+  default:
+    - listen 80
+    - server_name "reddit"
+    - location / {
+        proxy_pass http://127.0.0.1:9292;
+      }
+
 #db_host: "{{ hostvars[groups['db'][0]].inventory_hostname }}"
