@@ -5,3 +5,9 @@
 .terraform/
 .terraform.lock.*
 jdauphant.nginx
+.vagrant/
+*.log
+*.pyc
+.molecule
+.cache
+.pytest_cache
